@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 import org.bson.types.ObjectId;
 
 import com.cisco.cmad.model.CorporateEntity;
-import java.util.Optional;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
@@ -22,19 +21,20 @@ import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
+import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.StaticHandler;
+import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;
 
 public class GetServicesVerticle  extends AbstractVerticle {
-	Logger logger = LoggerFactory.getLogger(GetServicesVerticle.class); 
+	static Logger logger = LoggerFactory.getLogger(GetServicesVerticle.class); 
 	static EventBus eventBus;
 	private HttpServer server;
 	private static MongoClient client;
@@ -49,7 +49,7 @@ public class GetServicesVerticle  extends AbstractVerticle {
 	        configureMongoClient();
 	        server.requestHandler(router::accept)
             .listen(
-                    config().getInteger("https.port", 8443), result -> {
+                    config().getInteger("https.port", 8300), result -> {
                         if (result.succeeded()) {
                             startFuture.complete();
                         } else {
@@ -61,6 +61,15 @@ public class GetServicesVerticle  extends AbstractVerticle {
 	} 
 	private void configureMongoClient() {
 		client = MongoClient.createShared(vertx, new JsonObject().put("db_name", "blog_db"),"CMAD_Pool");
+		JsonObject config = new JsonObject().put("createIndexes","corporateEntity")
+				.put("indexes",new JsonArray().add(new JsonObject().put("key",new JsonObject().put("Name",1).put("type",1).put("parent",1)).put("name","CorporateUnique").put("unique",true)));
+		client.runCommand("createIndexes",  config, res->{
+	            	if (res.succeeded()){
+	            		if (logger.isDebugEnabled())
+	            			logger.debug("MongoClient configured with"+config.encode());
+	            	}
+	            	
+	            });
 	}
     private void setUpHttpServer(Router router){
         router.route().handler(ctx -> {
@@ -94,26 +103,153 @@ public class GetServicesVerticle  extends AbstractVerticle {
 		}
     }
     
-    private void setMessageConsumers(EventBus eb){
-        corporateConsumer = eb.consumer("com.cisco.cmad.register.company");
-        corporateConsumer.completionHandler(message -> {
-        	 logger.debug("Get Service registered to BlogServiceBus");
-        });
-        corporateConsumer.handler(message->{
-        	JsonObject msg = message.body();
-        	CountDownLatch latch = new CountDownLatch(1);
-        	JsonObject repl = saveCorporateEntities(msg.getString("companyName"),msg.getString("siteName")
-        			,msg.getString("deptName"),msg.getString("subDomain"),latch);
-        	try {
-				latch.await();
-	        	message.reply(repl);
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+private void setMessageConsumers(EventBus eb){
+  corporateConsumer = eb.consumer("com.cisco.cmad.register.company");
+  corporateConsumer.completionHandler(message -> {
+  	 logger.debug("Get Service registered to BlogServiceBus");
+  });
+  corporateConsumer.handler(message->{
+   	JsonObject msg = message.body();
+   	JsonObject returnObj = new JsonObject();
+    CorporateEntity comp = new CorporateEntity(msg.getString("companyName"),"company",Optional.empty(),Optional.empty());
+    CorporateEntity site = new CorporateEntity(msg.getString("siteName"),"site",Optional.empty(),Optional.ofNullable(new JsonObject().put("subDomain",msg.getString("subDomain"))));
+    CorporateEntity dept = new CorporateEntity(msg.getString("deptName"),"dept",Optional.empty(),Optional.empty());
+
+//        	JsonObject repl = saveCorporateEntities(msg.getString("companyName"),msg.getString("siteName")
+//        			,msg.getString("deptName"),msg.getString("subDomain"));
+    client.save("corporateEntity", comp.toJson(),saveCompany->{      	
+       if (saveCompany.succeeded()){
+         		returnObj.put("companyId", saveCompany.result());
+         		logger.error("\n Test"+returnObj.getString("companyId"));
+                site.setParent(new ObjectId(returnObj.getString("companyId")));
+                client.save("corporateEntity", site.toJson(), saveSite->{
+                 if (saveSite.succeeded()){
+                  	returnObj.put("siteId",saveSite.result());
+                  	dept.setParent(new ObjectId(returnObj.getString("siteId")));
+                     client.save("corporateEntity",dept.toJson(),saveDept->{
+                     			if (saveDept.succeeded()){
+                     				returnObj.put("deptId", saveDept.result());
+                     				logger.error(returnObj.encode()+"\n");
+                     				message.reply(returnObj);
+                  	    		}
+                    	    		else {
+                    	         	client.findOne("corporateEntity", dept.toJson(),null, findDept->{
+                    	        		if (findDept.succeeded()){
+                    	    				JsonObject dept_object= findDept.result();
+                    	    				CorporateEntity ret_Dept = new CorporateEntity(dept_object);
+                    	    				returnObj.put("DeptId",ret_Dept.getId().toHexString());
+                    	    				logger.error(returnObj.encode()+"\n");
+                    	    				message.reply(returnObj);
+                    	        		}
+                    	        	});
+                    	    			
+                     	    		}
+                 	       	});
+                 }
+                 else {
+                 	client.findOne("corporateEntity", site.toJson(),null, findCompany->{
+                 		if (findCompany.succeeded()){
+             				JsonObject object= findCompany.result();
+             				CorporateEntity ret_Site = new CorporateEntity(object);
+             				returnObj.put("siteId",ret_Site.getId());
+                         	dept.setParent(new ObjectId(returnObj.getString("siteId")));
+             		        client.save("corporateEntity",dept.toJson(),saveDept->{
+             		        			if (saveDept.succeeded()){
+             		        				returnObj.put("deptId", saveDept.result());
+             		        				logger.error(returnObj.encode()+"\n");
+             		        				message.reply(returnObj);
+             		     	    		}
+             		       	    		else {
+             		       	         	client.findOne("corporateEntity", dept.toJson(),null, findDept->{
+             		       	        		if (findDept.succeeded()){
+             		       	    				JsonObject dept_object= findDept.result();
+             		       	    				CorporateEntity ret_Dept = new CorporateEntity(dept_object);
+             		       	    				returnObj.put("DeptId",ret_Dept.getId().toHexString());
+             		       	    			logger.error(returnObj.encode()+"\n");
+             		       	    				message.reply(returnObj);
+             		       	        		}
+             		       	        	});
+             		       	    			
+             		        	    		}
+             		    	       	});
+                 		}
+                 	});
+                 }
+
+                 	
+                  	    });
+        }
+       else {
+    	logger.error("\nFailed to save Company:"+"\n"+saveCompany.result());
+    		client.findOne("corporateEntity", comp.toJson(),null, findCompany->{
+    			if (findCompany.succeeded()){
+    				JsonObject object= findCompany.result();
+    				CorporateEntity ret_company = new CorporateEntity(object);
+    				returnObj.put("companyId",ret_company.getId().toHexString());
+                 	site.setParent(new ObjectId(returnObj.getString("companyId")));
+    			       client.save("corporateEntity", site.toJson(), saveSite->{
+    			        if (saveSite.succeeded()){
+    			         	returnObj.put("siteId",saveSite.result());
+    	                 	dept.setParent(new ObjectId(returnObj.getString("siteId")));
+    			            client.save("corporateEntity",dept.toJson(),saveDept->{
+    			            			if (saveDept.succeeded()){
+    			            				returnObj.put("deptId", saveDept.result());
+    			            				logger.error(returnObj.encode()+"\n");
+    			            				message.reply(returnObj);
+    			         	    		}
+    			           	    		else {
+    			           	         	client.findOne("corporateEntity", dept.toJson(),null, findDept->{
+    			           	        		if (findDept.succeeded()){
+    			           	    				JsonObject dept_object= findDept.result();
+    			           	    				CorporateEntity ret_Dept = new CorporateEntity(dept_object);
+    			           	    				returnObj.put("DeptId",ret_Dept.getId().toHexString());
+    			           	    				logger.error(returnObj.encode()+"\n");
+    			           	    				message.reply(returnObj);
+    			           	        		}
+    			           	        	});
+    			           	    			
+    			            	    		}
+    			        	       	});
+    			        }
+    			        else {
+    			        	client.findOne("corporateEntity", site.toJson(),null, findSite->{
+    			        		if (findSite.succeeded()){
+    			    				JsonObject site_object= findSite.result();
+    			    				CorporateEntity ret_Site = new CorporateEntity(site_object);
+    			    				returnObj.put("siteId",ret_Site.getId().toHexString());
+    			                 	dept.setParent(new ObjectId(returnObj.getString("siteId")));
+    			    		        client.save("corporateEntity",dept.toJson(),saveDept->{
+    			    		        			if (saveDept.succeeded()){
+    			    		        				returnObj.put("deptId", saveDept.result());
+    			    		        				logger.error(returnObj.encode()+"\n");
+    			    		        				message.reply(returnObj);
+    			    		     	    		}
+    			    		       	    		else {
+    			    		       	         	client.findOne("corporateEntity", dept.toJson(),null, findDept->{
+    			    		       	        		if (findDept.succeeded()){
+    			    		       	    				JsonObject dept_object= findDept.result();
+    			    		       	    				CorporateEntity ret_Dept = new CorporateEntity(dept_object);
+    			    		       	    				returnObj.put("DeptId",ret_Dept.getId().toHexString());
+    			    		       	    				logger.error(returnObj.encode()+"\n");
+    			    		       	    				message.reply(returnObj);
+    			    		       	        		}
+    			    		       	        	});
+    			    		       	    			
+    			    		        	    		}
+    			    		    	       	});
+    			        		}
+    			        	});
+    			        }
+
+    			        	
+    			         	    });
+    			}
+    		});
+       }
+
 
         });
- 
+  	});
         
         
     }
@@ -122,7 +258,6 @@ public class GetServicesVerticle  extends AbstractVerticle {
 
         router.get("/Services/rest/company/:companyId/sites").handler(this::handleGetSitesOfCompany);
         router.get("/Services/rest/company/:companyId/sites/:siteId/departments").handler(this::handleGetDepartmentsOfSite);
-    	router.get("/Services/rest/user").handler(this::handleLoadSignedInUser);
     	router.get("/Services/rest/company").handler(this::handleGetCompanies);
 
  //       router.route("/logout").handler(this::handleLogOut);
@@ -161,18 +296,7 @@ public class GetServicesVerticle  extends AbstractVerticle {
 			
 	});
     }
-    public void handleLoadSignedInUser(RoutingContext rc){
-    	 eventBus.send("com.cisco.cmad.users.signed", new JsonObject(), reply -> {
-    		 if (reply.succeeded()) {
-    			 Object respObj = reply.result();
-    			 JsonArray users_l = (JsonArray) respObj;
-    			 rc.response().setStatusCode(200);
-    			 rc.response().end(Json.encode(users_l));
-    			 
-    		 }
-    		 
-    	 });
-    }
+
     public void handleGetDepartmentsOfSite(RoutingContext rc){
     	client.find("corporateEntity", new JsonObject().put("parent",rc.request().getParam("siteId") ).put("type","dept"), results -> {
 			if (results.succeeded() && results.result() !=null) {
@@ -223,46 +347,41 @@ public class GetServicesVerticle  extends AbstractVerticle {
 	});
     }
 
-    public void handleLogOut(RoutingContext rc){
-        logger.info("Logout called");
-        // Redirect back to the index page
-        rc.response()
-//                .putHeader("location", "/#/login")
-                .setStatusCode(302)
-                .end();
-    }
+
     
-    public JsonObject saveCorporateEntities(String companyName,String siteName,String deptName,String subdomain,CountDownLatch latch){
-    	JsonObject returnObj = new JsonObject();
-    	CorporateEntity comp = new CorporateEntity(companyName,"company",Optional.empty(),Optional.empty());
-    	client.save("corporateEntity", comp.toJson(),saveCompany->{
-    		if (saveCompany.succeeded()){
-    			returnObj.put("companyId", saveCompany.result());
-    	    	CorporateEntity site = new CorporateEntity(siteName,"site",Optional.of(saveCompany.result()),Optional.ofNullable(new JsonObject().put("subDomain",subdomain)));
-    	    	client.save("corporateEntity", site.toJson(), saveSite->{
-    	    		if (saveSite.succeeded()){
-    	    			returnObj.put("siteId",saveSite.result());
-    	    	    	CorporateEntity dept = new CorporateEntity(deptName,"dept",Optional.of(saveSite.result()),Optional.empty());
-    	    	    	client.save("corporateEntity",dept.toJson(),saveDept->{
-    	    	    		if (saveDept.succeeded()){
-    	    	    			returnObj.put("deptId", saveDept.result());
-    	    	    			latch.countDown();
-    	    	    		}
-    	    	    	});
-    	    		}
-    	    	});
-    		}
-    		
-    	});
-    	try {
-			latch.await();
+public JsonObject saveCorporateEntities(String companyName,String siteName,String deptName,String subdomain){
+	JsonObject returnObj = new JsonObject();
+	CountDownLatch latch = new CountDownLatch(1);
+    CorporateEntity comp = new CorporateEntity(companyName,"company",Optional.empty(),Optional.empty());
+    CorporateEntity site = new CorporateEntity(siteName,"site",Optional.empty(),Optional.ofNullable(new JsonObject().put("subDomain",subdomain)));
+    CorporateEntity dept = new CorporateEntity(deptName,"dept",Optional.empty(),Optional.empty());			
+  
+    	try {latch.await();
+    		logger.error("\n"+returnObj);
 	    	return returnObj;
-		} catch (InterruptedException e) {
+		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("Exception in latching :"+e.getStackTrace());
 		}
     	return returnObj;
     }
+
+public static void main(String args[]){
+	
+	ClusterManager mgr = new HazelcastClusterManager();
+	VertxOptions options = new VertxOptions().setWorkerPoolSize(Integer.parseInt(args[1])).setClusterManager(mgr);
+	Vertx.clusteredVertx(options, res -> {
+	  if (res.succeeded()) {
+	    Vertx vertx = res.result();
+	    DeploymentOptions depOptions = new DeploymentOptions().setConfig(new JsonObject().put("https.port", Integer.parseInt(args[0])));
+	    vertx.deployVerticle(GetServicesVerticle.class.getName(),depOptions);
+	    eventBus = vertx.eventBus();
+	  } else {
+	    logger.error("Verticle GetServices Deployment on port"+args[0]+"failed");
+	  }
+	});
+}
+
 
 }
 

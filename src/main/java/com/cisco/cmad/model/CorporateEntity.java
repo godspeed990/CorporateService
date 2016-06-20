@@ -8,7 +8,7 @@ public class CorporateEntity {
 	private ObjectId id;
 	private String Name;
 	private ObjectId parent;
-	private JsonObject key;
+	private JsonObject key = new JsonObject();
 	private String type;
 	public ObjectId getId() {
 		return id;
@@ -46,12 +46,13 @@ public class CorporateEntity {
 	public JsonObject toJson() {
 		    JsonObject json = new JsonObject();
 		    if (id != null ) {
-					      json.put("_id", id);
+					      json.put("_id", id.toHexString());
 					    }
 		    	json.put("Name", this.Name)
 		        .put("type",this.type);
 		        if (!type.equalsIgnoreCase("company"))
-		        	json.put("parent",this.parent);
+		        	if (this.parent !=null )
+		        	   json.put("parent",this.parent.toHexString());
 		        if (!key.isEmpty())
 		        	json.put("key",key);
 		    
