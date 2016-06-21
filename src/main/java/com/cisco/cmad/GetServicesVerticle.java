@@ -88,7 +88,7 @@ public class GetServicesVerticle  extends AbstractVerticle {
 
         setRoutes(router);
     	HttpServerOptions httpOpts = new HttpServerOptions();
-        httpOpts.setKeyStoreOptions(new JksOptions().setPath("keystore.jks").setPassword("cmad@cisco"));
+        httpOpts.setKeyStoreOptions(new JksOptions().setPath("mykeystore.jks").setPassword("cmad.cisco"));
         httpOpts.setSsl(true);
         server = vertx.createHttpServer(httpOpts);
 
@@ -266,12 +266,11 @@ private void setMessageConsumers(EventBus eb){
         router.route().handler(StaticHandler.create().setCachingEnabled(true).setMaxAgeSeconds(60)::handle);
 
         //For any exceptions that are not taken care of in code
-        router.route().failureHandler(rc->{
-	        int failCode = rc.statusCode();
-	        logger.error("In FailureHandler, Status code :" + failCode);
-	        HttpServerResponse response = rc.response();
-	        response.setStatusCode(failCode).end();
-        });
+//        router.route().failureHandler(rc->{
+//	        int failCode = rc.statusCode();
+//	        logger.error("In FailureHandler, Status code :" + failCode);	      
+//	        rc.response().setStatusCode(failCode).end();
+//        });
     }
     public  void handleGetCompanies(RoutingContext rc){
     	client.find("corporateEntity", new JsonObject().put("type","company"), results -> {
