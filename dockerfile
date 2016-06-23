@@ -16,4 +16,4 @@ COPY $VERTICLE_FOL $VERTICLE_HOME/
 # Launch the verticle                       (5)
 WORKDIR $VERTICLE_HOME
 ENTRYPOINT ["sh", "-c"]
-CMD ["vertx run $VERTICLE_NAME -cp $VERTICLE_FILE -instances 10 -worker -cluster -conf GetServices.conf"]
+CMD ["vertx run $VERTICLE_NAME -cp $VERTICLE_FILE -instances 10 -worker -cluster -conf GetServices.conf DLISTEN_PORT=$LISTEN_PORT"]

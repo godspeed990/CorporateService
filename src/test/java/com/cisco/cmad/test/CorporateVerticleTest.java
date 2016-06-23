@@ -64,10 +64,10 @@ public class CorporateVerticleTest {
 				,res->{
 					if (res.succeeded()){
 						JsonObject returnedObj = (JsonObject) res.result();
-						context.assertTrue(returnedObj.containsKey("companyId"),"Company set"+returnedObj.encode());
+						context.assertTrue(returnedObj.containsKey("deptId"),"Dept set"+returnedObj.encode());
 						
 					}
-			
+
 		});
 		
 		eb.send("com.cisco.cmad.register.company",new JsonObject().put("companyName", "OSN")
@@ -82,6 +82,7 @@ public class CorporateVerticleTest {
 					}
 			
 		});
+		
 	}
 	
 	@Test

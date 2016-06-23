@@ -46,13 +46,13 @@ public class CorporateEntity {
 	public JsonObject toJson() {
 		    JsonObject json = new JsonObject();
 		    if (id != null ) {
-					      json.put("_id", id.toHexString());
+					      json.put("_id", id.toString());
 					    }
 		    	json.put("Name", this.Name)
 		        .put("type",this.type);
 		        if (!type.equalsIgnoreCase("company"))
 		        	if (this.parent !=null )
-		        	   json.put("parent",this.parent.toHexString());
+		        	   json.put("parent",this.parent.toString());
 		        if (!key.isEmpty())
 		        	json.put("key",key);
 		    

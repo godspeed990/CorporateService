@@ -3,11 +3,10 @@
 docker build -t godspeed990/get-service .
 if [ $? = 0 ]
 then 
-   value=`cat ./lastPort`
-   echo "Currently used port is $value"
-   value=$((value+1))
-   echo $value > ./lastPort
-   echo "Invoking docker run with $value"
+	value=$((8300+$GO_PIPELINE_COUNTER))
+   echo "HA-PROXY ENTRY============"
+   echo "server server2 10.78.106.176:$value maxconn 32"
+   echo "HA-PROXY ENTRY============"
    docker run -e LISTEN_PORT=$value --net=host godspeed990/get-service &  
 else
    echo "Failed to build and deploy the docker container"
