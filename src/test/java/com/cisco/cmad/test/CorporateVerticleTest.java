@@ -11,7 +11,6 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.*;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -33,8 +32,8 @@ public class CorporateVerticleTest {
 		port = socket.getLocalPort();
 		socket.close();
 		 eb = vertx.eventBus();
-		DeploymentOptions depoptions = new DeploymentOptions().setConfig(new JsonObject().put("https.port", port));
-		vertx.deployVerticle(GetServicesVerticle.class.getName(), depoptions, context.asyncAssertSuccess());
+	DeploymentOptions depoptions = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port).put("port",27017).put("host","localhost").put("db_name","blog_db"));
+		vertx.deployVerticle(GetServicesVerticle.class.getName(),depoptions,  context.asyncAssertSuccess());
 	}
 
     @After
@@ -46,7 +45,7 @@ public class CorporateVerticleTest {
 		
 		final Async async = context.async();
 
-        vertx.createHttpClient(new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false)).getNow(port, "localhost", "/", resp -> {
+        vertx.createHttpClient().getNow(port, "localhost", "/", resp -> {
 
             context.assertEquals(200, resp.statusCode(), "Status code should be 200 ");
             resp.bodyHandler(body -> {
@@ -70,13 +69,26 @@ public class CorporateVerticleTest {
 					}
 			
 		});
+		
+		eb.send("com.cisco.cmad.register.company",new JsonObject().put("companyName", "OSN")
+				.put("siteName","NEWCO")
+				.put("deptName","Evolution")
+				.put("subDomain","com.cisco")				
+				,res->{
+					if (res.succeeded()){
+						JsonObject returnedObj = (JsonObject) res.result();
+						context.assertTrue(returnedObj.containsKey("companyId"),"Company set"+returnedObj.encode());
+						
+					}
+			
+		});
 	}
 	
 	@Test
 	public void testgetCompanies(TestContext context){
 
 	        Async async = context.async();
-	        vertx.createHttpClient(new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false)).get(port, "localhost", "/Services/rest/company", resp -> {
+	        vertx.createHttpClient().get(port, "localhost", "/Services/rest/company", resp -> {
 	        	context.assertEquals(resp.statusCode(), HttpResponseStatus.OK.code());
 	            resp.bodyHandler(body -> 
 	            {
@@ -93,7 +105,7 @@ public class CorporateVerticleTest {
 	public void testlistOfSites(TestContext context){
 
 	        Async async = context.async();
-	        vertx.createHttpClient(new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false)).get(port, "localhost", "/Services/rest/company/1/sites", resp -> {
+	        vertx.createHttpClient().get(port, "localhost", "/Services/rest/company/1/sites", resp -> {
 	        	context.assertEquals(resp.statusCode(), HttpResponseStatus.OK.code());
 	        	resp.bodyHandler(body -> 
 	            {
@@ -109,7 +121,7 @@ public class CorporateVerticleTest {
 	public void testListOfDept(TestContext context){
 
 	        Async async = context.async();
-	        vertx.createHttpClient(new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false)).get(port, "localhost", "/Services/rest/company/1/sites/2/departments", resp -> {
+	        vertx.createHttpClient().get(port, "localhost", "/Services/rest/company/1/sites/2/departments", resp -> {
 	        	context.assertEquals(resp.statusCode(), HttpResponseStatus.OK.code());
 	            resp.bodyHandler(body -> 
 	            {

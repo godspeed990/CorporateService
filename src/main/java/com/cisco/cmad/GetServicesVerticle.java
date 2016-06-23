@@ -5,14 +5,17 @@ package com.cisco.cmad;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 
 import org.bson.types.ObjectId;
 
+
 import com.cisco.cmad.model.CorporateEntity;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpServer;
@@ -21,7 +24,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.net.JksOptions;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -41,12 +43,20 @@ public class GetServicesVerticle  extends AbstractVerticle {
 	        setUpHttpServer(router);
 	        setMessageConsumers(eventBus);
 	        configureMongoClient();
+	        int port = 8300;
+	        try{
+	         port = Integer.parseInt(System.getenv("LISTEN_PORT"));
+	        }
+	        catch (Exception e){
+	        	logger.error("Failed to get ENV PORT");
+	        }
 	        server.requestHandler(router::accept)
-            .listen(
-                    config().getInteger("https.port", 8300), result -> {
+            .listen(config().getInteger("http.port",port), result -> {
                         if (result.succeeded()) {
+                        	logger.error("Get Services Verticles running over");
                             startFuture.complete();
                         } else {
+                        	logger.error("Get Services Verticles failed to startover");
                             startFuture.fail(result.cause());
                         }
                     }
@@ -54,6 +64,7 @@ public class GetServicesVerticle  extends AbstractVerticle {
 
 	} 
 	private void configureMongoClient() {
+		logger.error("Configuration:"+config().encode());
 		client = MongoClient.createShared(vertx, config(),"CMAD_Pool");
 		JsonObject config = new JsonObject().put("createIndexes","corporateEntity")
 				.put("indexes",new JsonArray().add(new JsonObject().put("key",new JsonObject().put("Name",1).put("type",1).put("parent",1)).put("name","CorporateUnique").put("unique",true)));
@@ -82,20 +93,12 @@ public class GetServicesVerticle  extends AbstractVerticle {
 
         setRoutes(router);
     	HttpServerOptions httpOpts = new HttpServerOptions();
-        httpOpts.setKeyStoreOptions(new JksOptions().setPath("mykeystore.jks").setPassword("cmad.cisco"));
-        httpOpts.setSsl(true);
+  //      httpOpts.setKeyStoreOptions(new JksOptions().setPath("mykeystore.jks").setPassword("cmad.cisco"));
+//        httpOpts.setSsl(true);
         server = vertx.createHttpServer(httpOpts);
-
-
-
-        
-        try {
-			//setUp("blog_db");
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
     }
+    
+    
     
 private void setMessageConsumers(EventBus eb){
   corporateConsumer = eb.consumer("com.cisco.cmad.register.company");
@@ -108,7 +111,7 @@ private void setMessageConsumers(EventBus eb){
     CorporateEntity comp = new CorporateEntity(msg.getString("companyName"),"company",Optional.empty(),Optional.empty());
     CorporateEntity site = new CorporateEntity(msg.getString("siteName"),"site",Optional.empty(),Optional.ofNullable(new JsonObject().put("subDomain",msg.getString("subDomain"))));
     CorporateEntity dept = new CorporateEntity(msg.getString("deptName"),"dept",Optional.empty(),Optional.empty());
-
+    logger.debug("message received over com.cisco.cmad.register.company");
 //        	JsonObject repl = saveCorporateEntities(msg.getString("companyName"),msg.getString("siteName")
 //        			,msg.getString("deptName"),msg.getString("subDomain"));
     client.save("corporateEntity", comp.toJson(),saveCompany->{      	
@@ -288,7 +291,7 @@ private void setMessageConsumers(EventBus eb){
 
 
     
-public JsonObject saveCorporateEntities(String companyName,String siteName,String deptName,String subdomain){
+/*public JsonObject saveCorporateEntities(String companyName,String siteName,String deptName,String subdomain){
 	JsonObject returnObj = new JsonObject();
 	CountDownLatch latch = new CountDownLatch(1);
     CorporateEntity comp = new CorporateEntity(companyName,"company",Optional.empty(),Optional.empty());
@@ -303,10 +306,26 @@ public JsonObject saveCorporateEntities(String companyName,String siteName,Strin
 			logger.error("Exception in latching :"+e.getStackTrace());
 		}
     	return returnObj;
-    }
+    }*/
 
 
+public static void main(String[] args) {
 
+    int port = 8300;
+
+
+    System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.SLF4JLogDelegateFactory");
+    System.setProperty("logback.configurationFile", "logback.xml");
+
+    System.out.println("In BloggerVerticle main method ");
+    //TBD: Pass no. of workers via configuration on command line during startup
+    VertxOptions options = new VertxOptions().setWorkerPoolSize(10);
+    Vertx vertx = Vertx.vertx(options);
+    DeploymentOptions depOps = new DeploymentOptions();
+    depOps.setConfig(new JsonObject().put("http.port", port));
+
+    vertx.deployVerticle(new GetServicesVerticle(), depOps);
+}
 
 }
 

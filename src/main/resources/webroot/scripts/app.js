@@ -34,11 +34,10 @@
 					request: function (config) {
                     config.headers = config.headers || {};
                     if (localStorage.getItem("token") != null) {
-                //        config.headers.Authorization = 'Bearer ' + localStorage.getItem('token');
-						 config.headers.Authorization = 'Bearer ' + localStorage.getItem('tokValue');
+						 config.headers.Authorization = 'Bearer ' + localStorage.getItem('token');
                     }
 					else { 
-						if ($location.path() != '/register'){
+						if ($location.path() != '/register' && $location.path() !='/login'){
 						$location.path('/login');}
 					}
                     return config;
@@ -177,14 +176,9 @@
 		$scope.login = function(user) {
 			$log.debug("Logging in user...");
 //			user.userName = Base64.encode(user.userName);
-//			user.password = Base64.encode(user.password);
-			localStorage.setItem('tokValue', Base64.encode(user.userName)+":"+Base64.encode(user.password));
 			$http.post("/Services/rest/user/auth", user).success(
 					function(data) {
-						user.userName = Base64.encode(user.userName);
-						user.password = Base64.encode(user.password);
-						localStorage.setItem('tokValue', user);
-						localStorage.setItem('token', data.token);
+						localStorage.setItem('token', Base64.encode(user.userName)+":"+Base64.encode(user.password));
 						$rootScope.loggedIn = true;
 						$location.path("/");
 					});
@@ -196,7 +190,6 @@
 				function(data, status, headers, config) {
 					$scope.companies = data;
 					$scope.isLoadingCompanies = false;
-					$location.path("/login");
 				}).error(function(data, status, headers, config) {
 					$scope.isLoadingCompanies = false;
 					$scope.error = status;
@@ -207,7 +200,7 @@
 			$http.post("/Services/rest/user/register", user).success(
 					function(data) {
 						$log.debug(data);
-						localStorage.setItem('token', data.token);
+						localStorage.setItem('token', Base64.encode(user.userName)+":"+Base64.encode(user.password));
 						$rootScope.loggedIn = true;
 						$location.path("/");
 					});
@@ -252,7 +245,6 @@
 					function() {
 						$rootScope.loggedIn = false;
 						localStorage.removeItem('token');
-						localStorage.removeItem('tokValue');
 						localStorage.clear();
 						$location.path("/login");
 					});
