@@ -60,7 +60,7 @@ public class GetServicesVerticle  extends AbstractVerticle {
 
 	} 
 	private void configureMongoClient() {
-		client = MongoClient.createShared(vertx, new JsonObject().put("db_name", "blog_db"),"CMAD_Pool");
+		client = MongoClient.createShared(vertx, config(),"CMAD_Pool");
 		JsonObject config = new JsonObject().put("createIndexes","corporateEntity")
 				.put("indexes",new JsonArray().add(new JsonObject().put("key",new JsonObject().put("Name",1).put("type",1).put("parent",1)).put("name","CorporateUnique").put("unique",true)));
 		client.runCommand("createIndexes",  config, res->{
@@ -120,7 +120,6 @@ private void setMessageConsumers(EventBus eb){
     client.save("corporateEntity", comp.toJson(),saveCompany->{      	
        if (saveCompany.succeeded()){
          		returnObj.put("companyId", saveCompany.result());
-         		logger.error("\n Test"+returnObj.getString("companyId"));
                 site.setParent(new ObjectId(returnObj.getString("companyId")));
                 client.save("corporateEntity", site.toJson(), saveSite->{
                  if (saveSite.succeeded()){
@@ -129,59 +128,17 @@ private void setMessageConsumers(EventBus eb){
                      client.save("corporateEntity",dept.toJson(),saveDept->{
                      			if (saveDept.succeeded()){
                      				returnObj.put("deptId", saveDept.result());
-                     				logger.error(returnObj.encode()+"\n");
                      				message.reply(returnObj);
                   	    		}
-                    	    		else {
-                    	         	client.findOne("corporateEntity", dept.toJson(),null, findDept->{
-                    	        		if (findDept.succeeded()){
-                    	    				JsonObject dept_object= findDept.result();
-                    	    				CorporateEntity ret_Dept = new CorporateEntity(dept_object);
-                    	    				returnObj.put("DeptId",ret_Dept.getId().toHexString());
-                    	    				logger.error(returnObj.encode()+"\n");
-                    	    				message.reply(returnObj);
-                    	        		}
-                    	        	});
-                    	    			
-                     	    		}
+	
                  	       	});
                  }
-                 else {
-                 	client.findOne("corporateEntity", site.toJson(),null, findCompany->{
-                 		if (findCompany.succeeded()){
-             				JsonObject object= findCompany.result();
-             				CorporateEntity ret_Site = new CorporateEntity(object);
-             				returnObj.put("siteId",ret_Site.getId());
-                         	dept.setParent(new ObjectId(returnObj.getString("siteId")));
-             		        client.save("corporateEntity",dept.toJson(),saveDept->{
-             		        			if (saveDept.succeeded()){
-             		        				returnObj.put("deptId", saveDept.result());
-             		        				logger.error(returnObj.encode()+"\n");
-             		        				message.reply(returnObj);
-             		     	    		}
-             		       	    		else {
-             		       	         	client.findOne("corporateEntity", dept.toJson(),null, findDept->{
-             		       	        		if (findDept.succeeded()){
-             		       	    				JsonObject dept_object= findDept.result();
-             		       	    				CorporateEntity ret_Dept = new CorporateEntity(dept_object);
-             		       	    				returnObj.put("DeptId",ret_Dept.getId().toHexString());
-             		       	    			logger.error(returnObj.encode()+"\n");
-             		       	    				message.reply(returnObj);
-             		       	        		}
-             		       	        	});
-             		       	    			
-             		        	    		}
-             		    	       	});
-                 		}
                  	});
-                 }
-
-                 	
-                  	    });
-        }
+                         }
        else {
-    	logger.error("\nFailed to save Company:"+"\n"+saveCompany.result());
-    		client.findOne("corporateEntity", comp.toJson(),null, findCompany->{
+    	   if (logger.isDebugEnabled())
+    		   logger.debug("\nFailed to save Company:"+"\n"+saveCompany.result());
+    	  client.findOne("corporateEntity", comp.toJson(),null, findCompany->{
     			if (findCompany.succeeded()){
     				JsonObject object= findCompany.result();
     				CorporateEntity ret_company = new CorporateEntity(object);
@@ -197,18 +154,7 @@ private void setMessageConsumers(EventBus eb){
     			            				logger.error(returnObj.encode()+"\n");
     			            				message.reply(returnObj);
     			         	    		}
-    			           	    		else {
-    			           	         	client.findOne("corporateEntity", dept.toJson(),null, findDept->{
-    			           	        		if (findDept.succeeded()){
-    			           	    				JsonObject dept_object= findDept.result();
-    			           	    				CorporateEntity ret_Dept = new CorporateEntity(dept_object);
-    			           	    				returnObj.put("DeptId",ret_Dept.getId().toHexString());
-    			           	    				logger.error(returnObj.encode()+"\n");
-    			           	    				message.reply(returnObj);
-    			           	        		}
-    			           	        	});
-    			           	    			
-    			            	    		}
+    			           	    		
     			        	       	});
     			        }
     			        else {
