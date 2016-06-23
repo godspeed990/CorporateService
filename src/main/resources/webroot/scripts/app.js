@@ -37,8 +37,9 @@
                 //        config.headers.Authorization = 'Bearer ' + localStorage.getItem('token');
 						 config.headers.Authorization = 'Bearer ' + localStorage.getItem('tokValue');
                     }
-					else {
-						$location.path('/login');
+					else { 
+						if ($location.path() != '/register'){
+						$location.path('/login');}
 					}
                     return config;
 					},
