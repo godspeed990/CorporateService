@@ -244,8 +244,6 @@
 			$rootScope.loggedIn = false;
 			localStorage.removeItem('token');
 			localStorage.clear();
-			var req = new XMLHttpRequest();
-			xhr.setRequestHeader('Authorization', null);
 			$location.path("/login");
 		};
 	});
