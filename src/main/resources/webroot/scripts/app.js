@@ -199,12 +199,11 @@
 			$log.debug("Registering...");
 			$http.post("/Services/rest/user/register", user).success(
 					function(data) {
-						$log.debug(data);
 						localStorage.setItem('token', Base64.encode(user.userName)+":"+Base64.encode(user.password));
 						$rootScope.loggedIn = true;
 						$location.path("/");
 					});
-		}
+		};
 		$scope.companyChange = function(companyId) {
 			$log.debug("Loading sites for company: " + companyId);
 			// Load sites
