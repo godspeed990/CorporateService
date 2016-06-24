@@ -6,7 +6,10 @@ import com.google.inject.Guice;
 import com.google.inject.Inject;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
@@ -17,6 +20,7 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
+import io.vertx.ext.web.handler.BodyHandler;
 
 
 public class GetServicesVerticle  extends AbstractVerticle {
@@ -58,7 +62,8 @@ public class GetServicesVerticle  extends AbstractVerticle {
 	} 
 
     private void setUpHttpServer(Router router){
-        router.route().handler(ctx -> {
+    	router.route().handler(BodyHandler.create());
+    	router.route().handler(ctx -> {
             ctx.response()
                     .putHeader("Cache-Control", "no-store, no-cache")
                     .putHeader("X-Content-Type-Options", "nosniff")
@@ -104,7 +109,6 @@ public class GetServicesVerticle  extends AbstractVerticle {
 
     }
 	
-
 
 }
 
