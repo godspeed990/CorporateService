@@ -42,12 +42,14 @@
 		<label for="siteId" class="control-label col-md-2">Select Site<span ng-show="isLoadingSites"><img src="images/loading.gif"></img></span></label> 
 		<div class="col-md-4"><select name="siteId" class="form-control" ng-model="user.siteId" id="siteId" ng-change="siteChange(user.companyId,user.siteId)">
 			<option ng-repeat="site in sites" value="{{site.id}}">{{site.siteName}}</option>
+			ng-model="user.siteName"></div>
 		</select></div>
 	</div>
 	<div class="form-group" ng-show="!user.isCompany">
 		<label for="deptId" class="control-label col-md-2">Select Department<span ng-show="isLoadingDepts"><img src="images/loading.gif"></img></span></label> 
 		<div class="col-md-4"><select name="deptId" class="form-control" ng-model="user.deptId" id="deptId">
 			<option ng-repeat="dept in departments" value="{{dept.id}}">{{dept.deptName}}</option>
+			ng-model="user.deptName"></div>
 		</select></div>
 	</div>
 	<div class="form-group" ng-show="user.isCompany">
