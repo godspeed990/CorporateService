@@ -81,9 +81,7 @@ public class GetServicesHandler {
     }
     
     public void handleGetSitesOfCompany(RoutingContext rc){
-    	System.out.println(rc.request().getParam("companyId"));
     	client.find("corporateEntity", new JsonObject().put("parent",rc.request().getParam("companyId") ).put("type","site"), results -> {
-    		System.out.println(results.result()+"dasada"+"\n");
     		if (results.succeeded() && results.result() !=null) {
 				List<JsonObject> objects = results.result();
 				List<CorporateEntity> sites = objects.stream().map(CorporateEntity::new).collect(Collectors.toList());;
@@ -108,52 +106,55 @@ public class GetServicesHandler {
 	});
     }
 
-	private void setMessageConsumers(EventBus eb){
-		  corporateConsumer = eb.consumer("com.cisco.cmad.register.company");
-		  corporateConsumer.completionHandler(message -> {
-		  	 logger.debug("Get Service registered to BlogServiceBus");
-		  });
-		  corporateConsumer.handler(message->{
-		   	JsonObject msg = message.body();
-		   	JsonObject returnObj = new JsonObject();
-		    CorporateEntity comp = new CorporateEntity(msg.getString("companyName"),"company",Optional.empty(),Optional.empty());
-		    CorporateEntity site = new CorporateEntity(msg.getString("siteName"),"site",Optional.empty(),Optional.ofNullable(new JsonObject().put("subDomain",msg.getString("subDomain"))));
-		    CorporateEntity dept = new CorporateEntity(msg.getString("deptName"),"dept",Optional.empty(),Optional.empty());
-		    logger.debug("message received over com.cisco.cmad.register.company");
+private void setMessageConsumers(EventBus eb){
+	corporateConsumer = eb.consumer("com.cisco.cmad.register.company");
+	corporateConsumer.completionHandler(message -> {
+	 	 logger.debug("Get Service registered to BlogServiceBus");
+	});
+	corporateConsumer.handler(message->{
+	   	JsonObject msg = message.body();
+	   	logger.error("VAlues"+message.body());
+	   	JsonObject returnObj = new JsonObject();
+	    CorporateEntity comp = new CorporateEntity(msg.getString("companyName"),"company",Optional.empty(),Optional.empty());
+	    CorporateEntity site = new CorporateEntity(msg.getString("siteName"),"site",Optional.empty(),Optional.ofNullable(new JsonObject().put("subDomain",msg.getString("subDomain"))));
+	    CorporateEntity dept = new CorporateEntity(msg.getString("deptName"),"dept",Optional.empty(),Optional.empty());
+	    logger.debug("message received over com.cisco.cmad.register.company"+message.body());
 //		        	JsonObject repl = saveCorporateEntities(msg.getString("companyName"),msg.getString("siteName")
 //		        			,msg.getString("deptName"),msg.getString("subDomain"));
-		    client.save("corporateEntity", comp.toJson(),saveCompany->{      	
-		       if (saveCompany.succeeded()){
-		         		returnObj.put("companyId", saveCompany.result());
-		                site.setParent(new ObjectId(returnObj.getString("companyId")));
-		                client.save("corporateEntity", site.toJson(), saveSite->{
-		                 if (saveSite.succeeded()){
-		                  	returnObj.put("siteId",saveSite.result());
-		                  	dept.setParent(new ObjectId(returnObj.getString("siteId")));
-		                     client.save("corporateEntity",dept.toJson(),saveDept->{
-		                     			if (saveDept.succeeded()){
-		                     				returnObj.put("deptId", saveDept.result());
+		client.save("corporateEntity", comp.toJson(),saveCompany->{      	
+		   if (saveCompany.succeeded()){
+		     	returnObj.put("companyId", saveCompany.result());
+		        site.setParent(new ObjectId(returnObj.getString("companyId")));
+		        client.save("corporateEntity", site.toJson(), saveSite->{
+		             if (saveSite.succeeded()){
+		                 returnObj.put("siteId",saveSite.result());
+		                 dept.setParent(new ObjectId(returnObj.getString("siteId")));
+		                 client.save("corporateEntity",dept.toJson(),saveDept->{
+		                 if (saveDept.succeeded()){
+		                     returnObj.put("deptId", saveDept.result());
+		                     logger.error("Sent:"+returnObj.encode());
 		                     				message.reply(returnObj);
-		                  	    		}
+		                  }
 			
-		                 	       	});
+		                 });
 		                 }
-		                 	});
-		                         }
-		       else {
-		    	   if (logger.isDebugEnabled())
-		    		   logger.debug("\nFailed to save Company:"+"\n"+saveCompany.result());
-		    	  client.findOne("corporateEntity", comp.toJson(),null, findCompany->{
-		    			if (findCompany.succeeded()){
-		    				JsonObject object= findCompany.result();
-		    				CorporateEntity ret_company = new CorporateEntity(object);
-		    				returnObj.put("companyId",ret_company.getId().toString());
-		                 	site.setParent(new ObjectId(returnObj.getString("companyId")));
-		    			       client.save("corporateEntity", site.toJson(), saveSite->{
-		    			        if (saveSite.succeeded()){
-		    			         	returnObj.put("siteId",saveSite.result());
-		    	                 	dept.setParent(new ObjectId(returnObj.getString("siteId")));
-		    			            client.save("corporateEntity",dept.toJson(),saveDept->{
+		             message.reply(returnObj);
+		        });
+		  }
+		  else {
+			  if (logger.isDebugEnabled())
+		    	logger.debug("\nFailed to save Company:"+"\n"+saveCompany.result());
+		    	client.findOne("corporateEntity", comp.toJson(),null, findCompany->{
+		    	if (findCompany.succeeded()){
+		    		JsonObject object= findCompany.result();
+		    		CorporateEntity ret_company = new CorporateEntity(object);
+		    		returnObj.put("companyId",ret_company.getId().toString());
+		            site.setParent(new ObjectId(returnObj.getString("companyId")));
+		            client.save("corporateEntity", site.toJson(), saveSite->{
+		    			if (saveSite.succeeded()){
+		    			     returnObj.put("siteId",saveSite.result());
+		    	             dept.setParent(new ObjectId(returnObj.getString("siteId")));
+		    			     client.save("corporateEntity",dept.toJson(),saveDept->{
 		    			            			if (saveDept.succeeded()){
 		    			            				returnObj.put("deptId", saveDept.result());
 		    			            				logger.error(returnObj.encode()+"\n");
