@@ -5,7 +5,7 @@ FROM vertx/vertx3
 ENV VERTICLE_NAME com.cisco.cmad.GetServicesVerticle
 ENV VERTICLE_FOL target
 ENV VERTICLE_FILE GetService-0.0.1-SNAPSHOT-fat.jar
-
+ENV VERTICLE_OL GetServices.conf
 # Set the location of the verticles         (3)
 ENV VERTICLE_HOME /opt/verticles
 
@@ -13,6 +13,7 @@ ENV VERTICLE_HOME /opt/verticles
 
 # Copy your verticle to the container       (4)
 COPY $VERTICLE_FOL $VERTICLE_HOME/
+COPY $VERTICLE_OL $VERTICLE_HOME/
 # Launch the verticle                       (5)
 WORKDIR $VERTICLE_HOME
 ENTRYPOINT ["sh", "-c"]
