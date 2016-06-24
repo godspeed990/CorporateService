@@ -241,13 +241,13 @@
 				$log.debug("Navbar controller...");
 		$scope.logOut = function(user) {
 			$log.debug("Logging out user...");
-			$http.post("/Services/rest/user/logOut", user).success(
-					function() {
-						$rootScope.loggedIn = false;
-						localStorage.removeItem('token');
-						localStorage.clear();
-						$location.path("/login");
-					});
+
+			$rootScope.loggedIn = false;
+			localStorage.removeItem('token');
+			localStorage.clear();
+			var req = new XMLHttpRequest();
+			xhr.setRequestHeader('Authorization', null);
+			$location.path("/login");
 		};
 	});
 
