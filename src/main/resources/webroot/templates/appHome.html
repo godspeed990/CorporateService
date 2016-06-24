@@ -34,15 +34,15 @@
 			<hr>
 			<!-- Posted Comments -->
 			<!-- Comment -->
-			<div class="media" ng-repeat="comment in blog.comments">
+			<div class="media" ng-repeat="commen in blog.comment">
 				<a class="pull-left" href="#"> <img class="media-object"
 					src="http://placehold.it/64x64" alt="">
 				</a>
 				<div class="media-body">
 					<h4 class="media-heading">
-						{{comment.userFirst}} {{comment.userLast}} <small>{{comment.date | date:'yyyy-MM-dd HH:mm Z'}}</small>
+						{{commen.userFirst}} {{commen.userLast}} <small>{{commen.date | date:'yyyy-MM-dd HH:mm Z'}}</small>
 					</h4>
-					{{comment.content}}
+					{{commen.content}}
 				</div>
 			</div>
 		</div>
