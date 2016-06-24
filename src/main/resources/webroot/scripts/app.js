@@ -235,7 +235,7 @@
 	// Controller for the navigation bar.. currently has no functions
 	//------------------------------------------------------------------------------------------------------------------
 	app.controller('NavbarController',
-			function($http, $log, $scope, $rootScope) {
+			function($http, $log, $scope, $rootScope,$location) {
 				var controller = this;
 				$log.debug("Navbar controller...");
 		$scope.logOut = function(user) {
