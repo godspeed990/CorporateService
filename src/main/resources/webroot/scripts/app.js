@@ -148,7 +148,7 @@
 						for(var index in $scope.blogs){
 							if($scope.blogs[index].id==blogId){
 								$log.debug("Pushing the added comment to list");
-								$scope.blogs[index].comments.push(comment);
+								$scope.blogs[index].comment.push(comment);
 								break;
 							}
 						}
